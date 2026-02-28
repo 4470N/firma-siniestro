@@ -151,7 +151,7 @@
   // ⚠️ ÚNICA LÍNEA QUE TENÉS QUE CAMBIAR:
   // Pegá acá la URL del webhook de n8n que vamos a crear
   // =====================================================
-  const WEBHOOK_URL = http:/eur-combination-lawyer-banners.trycloudflare.com/webhook/f98dfddb-b414-434f-abac-c12ba3f48fe1;
+  const WEBHOOK_URL = "http://eur-combination-lawyer-banners.trycloudflare.com/webhook/f98dfddb-b414-434f-abac-c12ba3f48fe1";
 
   // Lee parámetros de la URL (?siniestro=123&conductor=Juan)
   const params = new URLSearchParams(window.location.search);
@@ -169,17 +169,6 @@
   const hint    = document.getElementById("hint");
   let dibujando = false;
   let firmado   = false;
-
-  function initCanvas() {
-    const rect = canvas.getBoundingClientRect();
-    const dpr  = window.devicePixelRatio || 1;
-    canvas.width  = rect.width  * dpr;
-    canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
-    ctx.strokeStyle = "#1a1a2e";
-    ctx.lineWidth   = 2.5;
-    ctx.lineCap     = "round";
-    ctx.lineJoin    = "round";
     
   function initCanvas() {
   const dpr = window.devicePixelRatio || 1;
