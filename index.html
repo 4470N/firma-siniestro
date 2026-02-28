@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firma Digital - Declaración de Siniestro</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 32px 28px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+      width: 100%;
+      max-width: 480px;
+    }
+    .logo {
+      text-align: center;
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 20px;
+    }
+    h2 {
+      color: #1a1a2e;
+      font-size: 20px;
+      margin-bottom: 6px;
+    }
+    .subtitulo {
+      color: #666;
+      font-size: 13px;
+      margin-bottom: 18px;
+    }
+    .info-siniestro {
+      background: #f0f4ff;
+      border-left: 4px solid #2563eb;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #2563eb;
+      margin-bottom: 18px;
+    }
+    .canvas-wrapper {
+      border: 2px dashed #d1d5db;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fafafa;
+      position: relative;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 180px;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    .canvas-hint {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #ccc;
+      font-size: 13px;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    button {
+      flex: 1;
+      padding: 13px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: opacity 0.2s;
+    }
+    button:active { opacity: 0.8; }
+    #btnLimpiar { background: #f3f4f6; color: #374151; }
+    #btnEnviar { background: #2563eb; color: white; }
+    #btnEnviar:disabled { background: #93c5fd; cursor: not-allowed; }
+    .mensaje {
+      display: none;
+      margin-top: 20px;
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+      color: #15803d;
+      font-size: 14px;
+    }
+    .error {
+      display: none;
+      margin-top: 20px;
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+      color: #dc2626;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">Declaración Jurada de Siniestro</div>
+  <h2>✍️ Firma del Declarante</h2>
+  <p class="subtitulo">Dibuje su firma con el dedo o el mouse en el recuadro de abajo.</p>
+
+  <div class="info-siniestro" id="infoSiniestro">
+    Cargando datos del siniestro...
+  </div>
+
+  <div class="canvas-wrapper">
+    <canvas id="canvas"></canvas>
+    <div class="canvas-hint" id="hint">✏️ Firme aquí</div>
+  </div>
+
+  <div class="buttons">
+    <button id="btnLimpiar">🗑️ Limpiar</button>
+    <button id="btnEnviar">✅ Confirmar firma</button>
+  </div>
+
+  <div class="mensaje" id="mensaje">
+    ✔️ <strong>Firma enviada correctamente.</strong><br>
+    Su declaración ha sido registrada. Puede cerrar esta ventana.
+  </div>
+  <div class="error" id="error">
+    ❌ <strong>Error al enviar la firma.</strong><br>
+    Por favor intente nuevamente o contacte al estudio.
+  </div>
+</div>
+
+<script>
+  // =====================================================
+  // ⚠️ ÚNICA LÍNEA QUE TENÉS QUE CAMBIAR:
+  // Pegá acá la URL del webhook de n8n que vamos a crear
+  // =====================================================
+  const WEBHOOK_URL = http:/eur-combination-lawyer-banners.trycloudflare.com/webhook/f98dfddb-b414-434f-abac-c12ba3f48fe1;
+
+  // Lee parámetros de la URL (?siniestro=123&conductor=Juan)
+  const params = new URLSearchParams(window.location.search);
+  const siniestroId = params.get("siniestro") || "N/D";
+  const conductor  = params.get("conductor")  || "N/D";
+  const folderId   = params.get("folder")     || "";
+
+  // Muestra info del siniestro en el cartel azul
+  document.getElementById("infoSiniestro").innerHTML =
+    `📋 Siniestro N° <strong>${siniestroId}</strong> &nbsp;|&nbsp; Conductor: <strong>${conductor}</strong>`;
+
+  // ---- Canvas ----
+  const canvas  = document.getElementById("canvas");
+  const ctx     = canvas.getContext("2d");
+  const hint    = document.getElementById("hint");
+  let dibujando = false;
+  let firmado   = false;
+
+  function initCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr  = window.devicePixelRatio || 1;
+    canvas.width  = rect.width  * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.strokeStyle = "#1a1a2e";
+    ctx.lineWidth   = 2.5;
+    ctx.lineCap     = "round";
+    ctx.lineJoin    = "round";
+  }
+  initCanvas();
+  window.addEventListener("resize", initCanvas);
+
+  function getXY(e) {
+    const rect = canvas.getBoundingClientRect();
+    const src  = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+  }
+
+  function startDraw(e)  {
+    dibujando = true; firmado = true;
+    hint.style.opacity = "0";
+    ctx.beginPath();
+    const p = getXY(e); ctx.moveTo(p.x, p.y);
+  }
+  function draw(e) {
+    if (!dibujando) return;
+    const p = getXY(e); ctx.lineTo(p.x, p.y); ctx.stroke();
+  }
+  function stopDraw()  { dibujando = false; }
+
+  canvas.addEventListener("mousedown",  startDraw);
+  canvas.addEventListener("mousemove",  draw);
+  canvas.addEventListener("mouseup",    stopDraw);
+  canvas.addEventListener("mouseleave", stopDraw);
+  canvas.addEventListener("touchstart", e => { e.preventDefault(); startDraw(e); }, { passive: false });
+  canvas.addEventListener("touchmove",  e => { e.preventDefault(); draw(e); },      { passive: false });
+  canvas.addEventListener("touchend",   stopDraw);
+
+  document.getElementById("btnLimpiar").addEventListener("click", () => {
+    const rect = canvas.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    firmado = false;
+    hint.style.opacity = "1";
+  });
+
+  document.getElementById("btnEnviar").addEventListener("click", async () => {
+    if (!firmado) { alert("Por favor dibuje su firma antes de confirmar."); return; }
+
+    const btn = document.getElementById("btnEnviar");
+    btn.disabled    = true;
+    btn.textContent = "⏳ Enviando...";
+
+    try {
+      const res = await fetch(WEBHOOK_URL, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          siniestro_id: siniestroId,
+          conductor:    conductor,
+          folder_id:    folderId,
+          firma_base64: canvas.toDataURL("image/png")
+        })
+      });
+
+      if (!res.ok) throw new Error("HTTP " + res.status);
+
+      document.getElementById("mensaje").style.display = "block";
+      document.querySelector(".buttons").style.display = "none";
+    } catch (err) {
+      document.getElementById("error").style.display   = "block";
+      btn.disabled    = false;
+      btn.textContent = "✅ Confirmar firma";
+    }
+  });
+</script>
+</body>
+</html>
+```
+
+4. Bajá al final de la página, donde dice **"Commit new file"**, dejá todo por defecto y clic en **"Commit new file"** (botón verde)
+
+---
+
+## PASO 3 — Activar GitHub Pages
+
+1. Dentro de tu repositorio, clic en **"Settings"** (última pestaña del menú)
+2. En el menú izquierdo buscá **"Pages"**
+3. En **"Source"** seleccioná **"Deploy from a branch"**
+4. En **"Branch"** elegí **`main`** y carpeta **`/ (root)`**
+5. Clic en **"Save"**
+6. Esperá 2 minutos y recargá la página — te va a aparecer un cartel verde con tu URL, algo así:
+```
+https://TU-USUARIO.github.io/firma-siniestro
